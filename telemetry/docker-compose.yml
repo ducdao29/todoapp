@@ -1,0 +1,67 @@
+version: '3'
+volumes:
+  tempo:
+services:
+  # otel-collector:
+  #   image: otel/opentelemetry-collector:latest
+  #   volumes:
+  #     - ./otel-config.yml:/etc/otel/config.yml
+  #   command:
+  #     - '--config=/etc/otel/config.yml'
+  #   ports:
+  #     - "4318:4318" #http
+  #   depends_on:
+  #     - loki
+  #   networks:
+  #     - otel-stack
+  tempo:
+    image: grafana/tempo:latest
+    environment:
+      - TEMPO_STORAGE=local
+      - TEMPO_WAL=/var/tempo/wal
+      - TEMPO_BLOCKS=/var/tempo/blocks
+      - TEMPO_LOG_LEVEL=debug
+      - TEMPO_MAX_BLOCK_DURATION=5m
+      - TEMPO_COMPRESSOR=snappy
+      - TEMPO_COMPRESSOR_LEVEL=3
+    command: [ "-config.file=/etc/tempo.yml" ]
+    volumes:
+      - tempo:/var/tempo
+      - ./tempo.yml:/etc/tempo.yml
+      # - ./tempo-data:/var/tempo
+    ports:
+      - "3200:3200"   # tempo
+      - "4317:4317" # tempo grpc
+      - "9095:9095"
+    networks:
+      - otel-stack
+  loki:
+    image: grafana/loki:main
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yml
+    command: -config.file=/etc/loki/local-config.yml
+    networks:
+      - otel-stack
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_BASIC_ENABLED=false
+      - GF_FEATURE_TOGGLES_ENABLE=accessControlOnCall
+      - GF_INSTALL_PLUGINS=https://storage.googleapis.com/integration-artifacts/grafana-lokiexplore-app/grafana-lokiexplore-app-latest.zip;grafana-lokiexplore-app
+    ports:
+      - 3000:3000/tcp
+    volumes:
+      - ./grafana/datasources/:/etc/grafana/provisioning/datasources/
+      - ./grafana/dashboards-provisioning/:/etc/grafana/provisioning/dashboards/
+      - ./grafana/dashboards/:/var/lib/grafana/dashboards/
+    networks:
+      - otel-stack
+
+networks:
+  otel-stack:
+    driver: bridge
