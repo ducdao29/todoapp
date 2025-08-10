@@ -32,11 +32,11 @@ public class DiceController : ControllerBase
 
         if (string.IsNullOrEmpty(player))
         {
-            logger.LogInformation("Anonymous player is rolling the dice: {result}", result);
+            logger.LogInformation($"Anonymous player is rolling the dice: {string.Join(",", result)}");
         }
         else
         {
-            logger.LogInformation("{player} is rolling the dice: {result}", player, result);
+            logger.LogInformation($"{player} is rolling the dice: {string.Join(",", result)}");
         }
 
         return result;

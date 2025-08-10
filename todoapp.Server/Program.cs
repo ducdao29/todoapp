@@ -10,7 +10,6 @@ namespace todoapp.Server
         public static void Main(string[] args)
         {
 
-            // Ideally, you will want this name to come from a config file, constants file, etc.
             var serviceName = "dice-server";
             var serviceVersion = "1.0.0";
             var builder = WebApplication.CreateBuilder(args);
@@ -23,25 +22,30 @@ namespace todoapp.Server
                 .WithTracing(tracing => tracing
                     .AddSource(serviceName)
                     .AddAspNetCoreInstrumentation()
-                    .AddConsoleExporter()
-                    .AddOtlpExporter(options => {
-                        options.Endpoint = new Uri("http://localhost:4317");
-                        options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
-                    })
+                    .AddHttpClientInstrumentation()
+                    // .AddConsoleExporter()
                     )
                 .WithMetrics(metrics => metrics
                     .AddMeter(serviceName)
-                    .AddConsoleExporter());
-
-            builder.Logging.AddOpenTelemetry(options => options
-                .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(
-                    serviceName: serviceName,
-                    serviceVersion: serviceVersion))
-                .AddConsoleExporter());
+                    .AddAspNetCoreInstrumentation() // Built-in ASP.NET Core metrics
+                    .AddHttpClientInstrumentation() // Built-in HTTP client metrics
+                    .AddOtlpExporter(options =>
+                    {
+                        // Configure OTLP exporter to send to OTel collector
+                        options.Endpoint = new Uri("http://127.0.0.1:4318/v1/metrics");
+                        options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
+                    })
+                )
+                .WithLogging(logging => logging
+                    .AddOtlpExporter(options =>
+                    {
+                        // Configure OTLP exporter to send to OTel collector
+                        options.Endpoint = new Uri("http://127.0.0.1:4318/v1/logs");
+                        options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
+                    }));
 
             builder.Services.AddControllers();
 
-            builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -58,7 +62,7 @@ namespace todoapp.Server
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+            // app.UseHttpsRedirection();
 
             app.UseAuthorization();
 
